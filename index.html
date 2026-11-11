@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MATH Survivor - 3D Arcade & Math Edition</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body {
+            background-color: #080a10;
+            color: #ffffff;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 900px;
+            max-height: 700px;
+            box-shadow: 0 0 40px rgba(0, 200, 255, 0.25);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #0d1117;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background-color: #05070c;
+        }
+        /* HUD UI Overlay */
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px 20px;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: linear-gradient(180deg, rgba(5,7,12,0.85) 0%, rgba(5,7,12,0) 100%);
+            z-index: 10;
+        }
+        .hud-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .hud-title {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            color: #00e5ff;
+            text-shadow: 0 0 10px rgba(0, 229, 255, 0.6);
+        }
+        .hud-stats {
+            font-size: 14px;
+            font-weight: 700;
+            color: #e0e6ed;
+            background: rgba(255, 255, 255, 0.08);
+            padding: 4px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        /* Bar Graphics */
+        .bar-wrapper {
+            width: 100%;
+            height: 14px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 7px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .bar-fill-hp {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #ff1744, #ff5252);
+            box-shadow: 0 0 10px rgba(255, 23, 68, 0.8);
+            transition: width 0.15s ease-out;
+        }
+        .bar-fill-exp {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #00e5ff, #76ff03);
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.8);
+            transition: width 0.2s ease-out;
+        }
+        .bar-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 10px;
+            font-weight: 800;
+            color: #ffffff;
+            text-shadow: 0 0 4px #000000;
+        }
+
+        /* Virtual Joystick */
+        #touch-zone {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 60%;
+            z-index: 5;
+            touch-action: none;
+        }
+        #joystick-base {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: rgba(0, 229, 255, 0.12);
+            border: 2px solid rgba(0, 229, 255, 0.4);
+            border-radius: 50%;
+            display: none;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+        }
+        #joystick-stick {
+            position: absolute;
+            width: 44px;
+            height: 44px;
+            background: radial-gradient(circle, #00e5ff 0%, #00838f 100%);
+            border-radius: 50%;
+            display: none;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.8);
+        }
+
+        /* Modals & Popups */
+        .modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 7, 12, 0.88);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+        .modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-title {
+            font-size: 26px;
+            font-weight: 900;
+            color: #76ff03;
+            text-shadow: 0 0 15px rgba(118, 255, 3, 0.5);
+            margin-bottom: 8px;
+        }
+        .modal-subtitle {
+            font-size: 14px;
+            color: #b0bec5;
+            margin-bottom: 20px;
+        }
+
+        /* Ability Card Grid */
+        .cards-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+            max-width: 420px;
+        }
+        .card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
+            border: 1.5px solid rgba(0, 229, 255, 0.3);
+            border-radius: 12px;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .card:hover, .card:active {
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.2) 0%, rgba(0, 229, 255, 0.05) 100%);
+            border-color: #00e5ff;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 229, 255, 0.3);
+        }
+        .card-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .card-name {
+            font-size: 16px;
+            font-weight: 800;
+            color: #ffffff;
+        }
+        .card-desc {
+            font-size: 12px;
+            color: #90a4ae;
+        }
+        .card-level {
+            font-size: 13px;
+            font-weight: 700;
+            color: #ffeb3b;
+            background: rgba(255, 235, 59, 0.15);
+            padding: 4px 10px;
+            border-radius: 12px;
+        }
+
+        /* Quiz Box */
+        .quiz-box {
+            background: rgba(20, 26, 38, 0.95);
+            border: 2px solid #ffab00;
+            border-radius: 16px;
+            padding: 24px;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 0 30px rgba(255, 171, 0, 0.3);
+            text-align: center;
+        }
+        .quiz-header {
+            font-size: 14px;
+            font-weight: 800;
+            color: #ffab00;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+        .quiz-question {
+            font-size: 26px;
+            font-weight: 900;
+            color: #ffffff;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+        }
+        .quiz-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .option-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: 700;
+            padding: 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .option-btn:hover, .option-btn:active {
+            background: #ffab00;
+            color: #000000;
+            border-color: #ffab00;
+            box-shadow: 0 0 15px rgba(255, 171, 0, 0.6);
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="900" height="700"></canvas>
+
+    <!-- HUD Overlay -->
+    <div id="ui-overlay">
+        <div class="hud-row">
+            <div class="hud-title">⚡ MATH SURVIVOR</div>
+            <div class="hud-stats">LVL <span id="lvl-txt">1</span> | 킬: <span id="score-txt">0</span></div>
+        </div>
+        <div class="bar-wrapper">
+            <div class="bar-fill-hp" id="hp-bar"></div>
+            <div class="bar-text" id="hp-txt">HP 100 / 100</div>
+        </div>
+        <div class="bar-wrapper">
+            <div class="bar-fill-exp" id="exp-bar"></div>
+            <div class="bar-text" id="exp-txt">EXP 0 / 100</div>
+        </div>
+    </div>
+
+    <!-- Virtual Touch Joystick -->
+    <div id="touch-zone"></div>
+    <div id="joystick-base"></div>
+    <div id="joystick-stick"></div>
+
+    <!-- Modal 1: Ability Card Selection -->
+    <div class="modal" id="ability-modal">
+        <div class="modal-title">LEVEL UP!</div>
+        <div class="modal-subtitle">강화할 능력을 선택하세요 (수학 문제를 맞혀야 획득!)</div>
+        <div class="cards-container" id="cards-wrapper"></div>
+    </div>
+
+    <!-- Modal 2: 5th Grade Decimal Math Quiz -->
+    <div class="modal" id="quiz-modal">
+        <div class="quiz-box">
+            <div class="quiz-header">📐 초등 5학년 2학기 4단원: 소수의 곱셈</div>
+            <div class="quiz-question" id="quiz-q-text">0.4 × 0.7 = ?</div>
+            <div class="quiz-options" id="quiz-options-wrapper"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- Canvas Setup & Scaling ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const lvlTxt = document.getElementById('lvl-txt');
+const scoreTxt = document.getElementById('score-txt');
+const hpBar = document.getElementById('hp-bar');
+const hpTxt = document.getElementById('hp-txt');
+const expBar = document.getElementById('exp-bar');
+const expTxt = document.getElementById('exp-txt');
+
+const abilityModal = document.getElementById('ability-modal');
+const cardsWrapper = document.getElementById('cards-wrapper');
+const quizModal = document.getElementById('quiz-modal');
+const quizQText = document.getElementById('quiz-q-text');
+const quizOptionsWrapper = document.getElementById('quiz-options-wrapper');
+
+// --- Input Systems (Keyboard & Touch) ---
+const keys = {};
+window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
+window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+
+const touchZone = document.getElementById('touch-zone');
+const joyBase = document.getElementById('joystick-base');
+const joyStick = document.getElementById('joystick-stick');
+
+let touchActive = false;
+let touchOrigin = { x: 0, y: 0 };
+let joystickVector = { x: 0, y: 0 };
+
+touchZone.addEventListener('pointerdown', (e) => {
+    touchActive = true;
+    touchOrigin = { x: e.clientX, y: e.clientY };
+    joyBase.style.display = 'block';
+    joyStick.style.display = 'block';
+    joyBase.style.left = `${e.clientX}px`;
+    joyBase.style.top = `${e.clientY}px`;
+    joyStick.style.left = `${e.clientX}px`;
+    joyStick.style.top = `${e.clientY}px`;
+});
+
+window.addEventListener('pointermove', (e) => {
+    if (!touchActive) return;
+    const dx = e.clientX - touchOrigin.x;
+    const dy = e.clientY - touchOrigin.y;
+    const dist = Math.hypot(dx, dy);
+    const maxRadius = 40;
+
+    const angle = Math.atan2(dy, dx);
+    const clampedDist = Math.min(dist, maxRadius);
+    
+    const stickX = touchOrigin.x + Math.cos(angle) * clampedDist;
+    const stickY = touchOrigin.y + Math.sin(angle) * clampedDist;
+
+    joyStick.style.left = `${stickX}px`;
+    joyStick.style.top = `${stickY}px`;
+
+    joystickVector = {
+        x: (Math.cos(angle) * clampedDist) / maxRadius,
+        y: (Math.sin(angle) * clampedDist) / maxRadius
+    };
+});
+
+const resetJoystick = () => {
+    touchActive = false;
+    joystickVector = { x: 0, y: 0 };
+    joyBase.style.display = 'none';
+    joyStick.style.display = 'none';
+};
+window.addEventListener('pointerup', resetJoystick);
+window.addEventListener('pointercancel', resetJoystick);
+
+// --- Game Engine Variables ---
+let lastTime = 0;
+let isPaused = false;
+let killCount = 0;
+
+// Stars Background Particle System
+const stars = Array.from({ length: 60 }, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    size: Math.random() * 2 + 0.5,
+    speed: Math.random() * 30 + 10
+}));
+
+// Floating Text Systems (Damage/EXP)
+const floatingTexts = [];
+
+// --- Player Object ---
+const player = {
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    radius: 18,
+    speed: 220,
+    tilt: 0, // 3D Roll/Tilt Effect Angle
+    hp: 100,
+    maxHp: 100,
+    level: 1,
+    exp: 0,
+    nextExp: 100,
+    magnetRadius: 140,
+    attackTimer: 0,
+    abilities: {
+        laser: 1,      // Primary weapon
+        plasmaRing: 0, // Orbital defense weapon
+        speedBoost: 0, // Passive
+        maxHpBoost: 0  // Passive
+    }
+};
+
+// --- Entities Arrays ---
+const projectiles = [];
+const enemies = [];
+const gems = [];
+const particles = [];
+
+let enemySpawnTimer = 0;
+
+// --- Ability Definitions ---
+const ABILITY_DATABASE = [
+    { id: 'laser', name: '플라즈마 레이저', desc: '가장 가까운 몬스터에게 관통 레이저를 자동 발사합니다.', type: 'active' },
+    { id: 'plasmaRing', name: '플라즈마 쉴드', desc: '전투기 주위를 회전하는 방어 에너지 구체를 생성합니다.', type: 'active' },
+    { id: 'speedBoost', name: '이온 엔진 강화', desc: '전투기의 이동 속도가 15% 증가합니다.', type: 'passive' },
+    { id: 'maxHpBoost', name: '나노 장갑 보강', desc: '최대 체력이 25 증가하고 체력을 일부 회복합니다.', type: 'passive' }
+];
+
+let selectedAbilityToQuiz = null;
+
+// --- 5th Grade Semester 2 Unit 4 Math Problem Generator ---
+function generateDecimalQuiz() {
+    const types = ['decimal_single', 'decimal_double', 'whole_decimal'];
+    const selectedType = types[Math.floor(Math.random() * types.length)];
+
+    let num1, num2, answer;
+
+    if (selectedType === 'decimal_single') {
+        // e.g. 0.4 * 0.7 = 0.28
+        num1 = (Math.floor(Math.random() * 8) + 2) / 10;
+        num2 = (Math.floor(Math.random() * 8) + 2) / 10;
+        answer = parseFloat((num1 * num2).toFixed(2));
+    } else if (selectedType === 'decimal_double') {
+        // e.g. 1.2 * 0.4 = 0.48
+        num1 = (Math.floor(Math.random() * 25) + 11) / 10;
+        num2 = (Math.floor(Math.random() * 8) + 2) / 10;
+        answer = parseFloat((num1 * num2).toFixed(2));
+    } else {
+        // e.g. 25 * 0.3 = 7.5
+        num1 = Math.floor(Math.random() * 15) + 4;
+        num2 = (Math.floor(Math.random() * 8) + 2) / 10;
+        answer = parseFloat((num1 * num2).toFixed(1));
+    }
+
+    // Generate Distractors (Common student mistakes: wrong decimal position)
+    const optionsSet = new Set();
+    optionsSet.add(answer);
+
+    const distractor1 = parseFloat((answer * 10).toFixed(2));
+    const distractor2 = parseFloat((answer / 10).toFixed(3));
+    const distractor3 = parseFloat((answer + 0.1).toFixed(2));
+    const distractor4 = parseFloat((Math.max(0.01, answer - 0.2)).toFixed(2));
+
+    [distractor1, distractor2, distractor3, distractor4].forEach(val => {
+        if (optionsSet.size < 4 && val !== answer) optionsSet.add(val);
+    });
+
+    while (optionsSet.size < 4) {
+        const dummy = parseFloat((answer + (Math.random() * 2 - 1)).toFixed(2));
+        if (dummy > 0) optionsSet.add(dummy);
+    }
+
+    const options = Array.from(optionsSet).sort(() => Math.random() - 0.5);
+
+    return {
+        question: `${num1} × ${num2} = ?`,
+        answer: answer,
+        options: options
+    };
+}
+
+// --- Main Game Loop ---
+function gameLoop(timestamp) {
+    if (!lastTime) lastTime = timestamp;
+    const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+    lastTime = timestamp;
+
+    if (!isPaused) {
+        update(dt);
+        render();
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+// --- Game State Updates ---
+function update(dt) {
+    // 1. Background Starfield Movement
+    stars.forEach(s => {
+        s.y += s.speed * dt;
+        if (s.y > canvas.height) {
+            s.y = 0;
+            s.x = Math.random() * canvas.width;
+        }
+    });
+
+    // 2. Player Controls & 3D Tilt calculation
+    let dx = joystickVector.x;
+    let dy = joystickVector.y;
+
+    if (keys['w'] || keys['arrowup']) dy -= 1;
+    if (keys['s'] || keys['arrowdown']) dy += 1;
+    if (keys['a'] || keys['arrowleft']) dx -= 1;
+    if (keys['d'] || keys['arrowright']) dx += 1;
+
+    if (dx !== 0 && dy !== 0 && !touchActive) {
+        dx *= Math.SQRT1_2;
+        dy *= Math.SQRT1_2;
+    }
+
+    // Smooth 3D tilt interpolation based on horizontal movement
+    const targetTilt = dx * 0.45;
+    player.tilt += (targetTilt - player.tilt) * 0.15;
+
+    player.x += dx * player.speed * dt;
+    player.y += dy * player.speed * dt;
+    player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
+    player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y));
+
+    // Thruster Jet Trail Particles
+    if (Math.random() < 0.7) {
+        particles.push({
+            x: player.x + (Math.random() * 6 - 3),
+            y: player.y + 18,
+            vx: (Math.random() - 0.5) * 20,
+            vy: Math.random() * 80 + 100,
+            life: 0.25,
+            maxLife: 0.25,
+            color: Math.random() > 0.5 ? '#00e5ff' : '#ff9100',
+            size: Math.random() * 4 + 2
+        });
+    }
+
+    // 3. Auto Weapons Firing
+    player.attackTimer += dt;
+    const cooldown = Math.max(0.15, 0.5 - (player.abilities.laser - 1) * 0.05);
+    if (player.attackTimer >= cooldown) {
+        player.attackTimer = 0;
+        fireLaser();
+    }
+
+    // 4. Update Projectiles
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        const p = projectiles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.life -= dt;
+        if (p.life <= 0 || p.x < -20 || p.x > canvas.width + 20 || p.y < -20 || p.y > canvas.height + 20) {
+            projectiles.splice(i, 1);
+        }
+    }
+
+    // 5. Spawn Enemies
+    enemySpawnTimer += dt;
+    if (enemySpawnTimer >= Math.max(0.3, 1.2 - Math.floor(killCount / 15) * 0.1)) {
+        enemySpawnTimer = 0;
+        spawnEnemy();
+    }
+
+    // 6. Update Enemies & Collisions
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        const angle = Math.atan2(player.y - e.y, player.x - e.x);
+        e.x += Math.cos(angle) * e.speed * dt;
+        e.y += Math.sin(angle) * e.speed * dt;
+        e.pulse += dt * 4;
+
+        // Player Collision
+        const distToPlayer = Math.hypot(player.x - e.x, player.y - e.y);
+        if (distToPlayer < player.radius + e.radius) {
+            player.hp -= e.damage * dt;
+            player.hp = Math.max(0, player.hp);
+            updateHUD();
+            if (player.hp <= 0) {
+                alert(`게임 오버! 최종 레벨: ${player.level}, 처치 수: ${killCount}`);
+                location.reload();
+                return;
+            }
+        }
+
+        // Projectile Hits
+        for (let j = projectiles.length - 1; j >= 0; j--) {
+            const p = projectiles[j];
+            const dist = Math.hypot(p.x - e.x, p.y - e.y);
+            if (dist < p.radius + e.radius) {
+                e.hp -= p.damage;
+                projectiles.splice(j, 1);
+
+                // Hit sparks
+                createExplosion(p.x, p.y, '#ffff00', 4, 80);
+
+                if (e.hp <= 0) {
+                    // Enemy Destroyed -> Drop EXP Gem based on Monster Tier!
+                    createExplosion(e.x, e.y, e.color, e.tier === 3 ? 25 : 12, e.tier === 3 ? 200 : 120);
+                    spawnGem(e.x, e.y, e.tier);
+                    enemies.splice(i, 1);
+                    killCount++;
+                    updateHUD();
+                    break;
+                }
+            }
+        }
+    }
+
+    // 7. Update EXP Gems & Vacuum Magnet Effect
+    for (let i = gems.length - 1; i >= 0; i--) {
+        const g = gems[i];
+        const dist = Math.hypot(player.x - g.x, player.y - g.y);
+
+        if (dist < player.magnetRadius) {
+            const angle = Math.atan2(player.y - g.y, player.x - g.x);
+            const pullSpeed = 350 * (1 - dist / player.magnetRadius) + 150;
+            g.x += Math.cos(angle) * pullSpeed * dt;
+            g.y += Math.sin(angle) * pullSpeed * dt;
+        }
+
+        if (dist < player.radius + g.radius) {
+            addExp(g.expValue);
+            gems.splice(i, 1);
+        }
+    }
+
+    // 8. Update Particles & Floating Text
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.life -= dt;
+        if (p.life <= 0) particles.splice(i, 1);
+    }
+}
+
+// --- Weapon Actions ---
+function fireLaser() {
+    let target = null;
+    let minDist = Infinity;
+    for (const e of enemies) {
+        const d = Math.hypot(e.x - player.x, e.y - player.y);
+        if (d < minDist) {
+            minDist = d;
+            target = e;
+        }
+    }
+
+    const count = Math.min(4, Math.floor((player.abilities.laser - 1) / 2) + 1);
+    for (let i = 0; i < count; i++) {
+        let vx = 0, vy = -500;
+        if (target) {
+            const spread = (i - (count - 1) / 2) * 0.15;
+            const angle = Math.atan2(target.y - player.y, target.x - player.x) + spread;
+            vx = Math.cos(angle) * 550;
+            vy = Math.sin(angle) * 550;
+        }
+
+        projectiles.push({
+            x: player.x,
+            y: player.y - 10,
+            vx: vx,
+            vy: vy,
+            radius: 5,
+            damage: 35 + player.abilities.laser * 10,
+            life: 1.5
+        });
+    }
+}
+
+// --- Monster Spawner: 3 Tiers with 3D Fierce Visuals ---
+function spawnEnemy() {
+    let x, y;
+    const side = Math.floor(Math.random() * 4);
+    const pad = 40;
+    if (side === 0) { x = Math.random() * canvas.width; y = -pad; }
+    else if (side === 1) { x = canvas.width + pad; y = Math.random() * canvas.height; }
+    else if (side === 2) { x = Math.random() * canvas.width; y = canvas.height + pad; }
+    else { x = -pad; y = Math.random() * canvas.height; }
+
+    const rand = Math.random();
+    let tier = 1;
+    if (rand > 0.85) tier = 3;      // Boss Tier Dreadnought
+    else if (rand > 0.55) tier = 2; // Medium Crusher
+
+    if (tier === 1) {
+        enemies.push({
+            x: x, y: y, tier: 1, radius: 14, speed: 110, hp: 40, damage: 12,
+            color: '#00e676', pulse: Math.random() * 10
+        });
+    } else if (tier === 2) {
+        enemies.push({
+            x: x, y: y, tier: 2, radius: 22, speed: 85, hp: 120, damage: 22,
+            color: '#d500f9', pulse: Math.random() * 10
+        });
+    } else {
+        // Tier 3: Fierce Horned Lava Boss Monster
+        enemies.push({
+            x: x, y: y, tier: 3, radius: 36, speed: 60, hp: 350, damage: 45,
+            color: '#ff3d00', pulse: Math.random() * 10
+        });
+    }
+}
+
+// --- EXP Gem Spawner ---
+function spawnGem(x, y, tier) {
+    let expVal = 20;
+    let color = '#00e5ff'; // Small Gem
+    let radius = 6;
+
+    if (tier === 2) {
+        expVal = 50;
+        color = '#d500f9'; // Medium Purple Gem
+        radius = 9;
+    } else if (tier === 3) {
+        expVal = 150;
+        color = '#ffea00'; // Huge Gold Gem!
+        radius = 14;
+    }
+
+    gems.push({ x: x, y: y, tier: tier, expValue: expVal, color: color, radius: radius });
+}
+
+// --- Particle VFX ---
+function createExplosion(x, y, color, count, maxSpeed) {
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = Math.random() * maxSpeed;
+        particles.push({
+            x: x, y: y,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd,
+            life: 0.3 + Math.random() * 0.2,
+            maxLife: 0.5,
+            color: color,
+            size: Math.random() * 4 + 2
+        });
+    }
+}
+
+// --- Level & EXP System ---
+function addExp(amount) {
+    player.exp += amount;
+    if (player.exp >= player.nextExp) {
+        player.exp -= player.nextExp;
+        player.level++;
+        player.nextExp = Math.floor(player.nextExp * 1.35);
+        updateHUD();
+        triggerLevelUp();
+    } else {
+        updateHUD();
+    }
+}
+
+function updateHUD() {
+    lvlTxt.innerText = player.level;
+    scoreTxt.innerText = killCount;
+    hpBar.style.width = `${(player.hp / player.maxHp) * 100}%`;
+    hpTxt.innerText = `HP ${Math.ceil(player.hp)} / ${player.maxHp}`;
+    expBar.style.width = `${(player.exp / player.nextExp) * 100}%`;
+    expTxt.innerText = `EXP ${player.exp} / ${player.nextExp}`;
+}
+
+// --- Level Up Modal Flow ---
+function triggerLevelUp() {
+    isPaused = true;
+    cardsWrapper.innerHTML = '';
+
+    // Pick 3 Random Abilities
+    const shuffled = [...ABILITY_DATABASE].sort(() => Math.random() - 0.5).slice(0, 3);
+
+    shuffled.forEach(ab => {
+        const curLvl = player.abilities[ab.id] || 0;
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+            <div class="card-info">
+                <div class="card-name">${ab.name}</div>
+                <div class="card-desc">${ab.desc}</div>
+            </div>
+            <div class="card-level">Lv.${curLvl} ➔ ${curLvl + 1}</div>
+        `;
+        card.onclick = () => selectAbilityCard(ab);
+        cardsWrapper.appendChild(card);
+    });
+
+    abilityModal.classList.add('active');
+}
+
+function selectAbilityCard(ability) {
+    selectedAbilityToQuiz = ability;
+    abilityModal.classList.remove('active');
+    openMathQuiz();
+}
+
+// --- Math Quiz Flow ---
+function openMathQuiz() {
+    const quiz = generateDecimalQuiz();
+    quizQText.innerText = quiz.question;
+    quizOptionsWrapper.innerHTML = '';
+
+    quiz.options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.innerText = opt;
+        btn.onclick = () => submitQuizAnswer(opt, quiz.answer);
+        quizOptionsWrapper.appendChild(btn);
+    });
+
+    quizModal.classList.add('active');
+}
+
+function submitQuizAnswer(userAns, correctAns) {
+    quizModal.classList.remove('active');
+
+    if (userAns === correctAns) {
+        // Correct Answer -> Apply Upgrade
+        const id = selectedAbilityToQuiz.id;
+        player.abilities[id] = (player.abilities[id] || 0) + 1;
+
+        if (id === 'speedBoost') player.speed += 30;
+        if (id === 'maxHpBoost') {
+            player.maxHp += 25;
+            player.hp = Math.min(player.maxHp, player.hp + 40);
+        }
+
+        updateHUD();
+        alert('⭕ 정답입니다! 능력이 성공적으로 강화되었습니다.');
+    } else {
+        // Wrong Answer -> Penalty
+        player.hp = Math.max(1, player.hp - 15);
+        updateHUD();
+        alert(`❌ 오답입니다! (정답: ${correctAns})
+강화 실패 및 HP가 15 차감되었습니다.`);
+    }
+
+    isPaused = false;
+}
+
+// --- 3D Canvas Graphics Render Engine ---
+function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 1. Draw Starfield
+    ctx.fillStyle = '#ffffff';
+    stars.forEach(s => {
+        ctx.globalAlpha = Math.random() * 0.5 + 0.3;
+        ctx.fillRect(s.x, s.y, s.size, s.size);
+    });
+    ctx.globalAlpha = 1.0;
+
+    // 2. Draw Particles
+    particles.forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.life / p.maxLife;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    ctx.globalAlpha = 1.0;
+
+    // 3. Draw EXP Gems with Glowing 3D Crystal Visuals
+    gems.forEach(g => {
+        ctx.save();
+        ctx.translate(g.x, g.y);
+
+        // Gem Glow Shadow
+        ctx.shadowColor = g.color;
+        ctx.shadowBlur = g.tier === 3 ? 15 : 8;
+
+        ctx.fillStyle = g.color;
+        ctx.beginPath();
+        if (g.tier === 3) {
+            // Hexagon Gem for Tier 3 Boss
+            for (let i = 0; i < 6; i++) {
+                const a = (Math.PI / 3) * i;
+                const rx = Math.cos(a) * g.radius;
+                const ry = Math.sin(a) * g.radius;
+                if (i === 0) ctx.moveTo(rx, ry);
+                else ctx.lineTo(rx, ry);
+            }
+        } else {
+            // Rhombus / Diamond Gem
+            ctx.moveTo(0, -g.radius);
+            ctx.lineTo(g.radius * 0.7, 0);
+            ctx.lineTo(0, g.radius);
+            ctx.lineTo(-g.radius * 0.7, 0);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    });
+
+    // 4. Draw 3D Fierce Monsters
+    enemies.forEach(e => {
+        ctx.save();
+        ctx.translate(e.x, e.y);
+
+        if (e.tier === 1) {
+            // Tier 1: Small Cyber Drone Sphere with Glowing Core
+            ctx.fillStyle = '#1b5e20';
+            ctx.beginPath();
+            ctx.arc(0, 0, e.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = e.color;
+            ctx.beginPath();
+            ctx.arc(0, 0, e.radius * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (e.tier === 2) {
+            // Tier 2: Spiked Armored Crusher
+            ctx.fillStyle = '#4a148c';
+            ctx.beginPath();
+            ctx.arc(0, 0, e.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Metallic Spikes
+            ctx.fillStyle = '#d500f9';
+            for (let i = 0; i < 6; i++) {
+                const a = (Math.PI / 3) * i + e.pulse;
+                ctx.beginPath();
+                ctx.arc(Math.cos(a) * e.radius, Math.sin(a) * e.radius, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        } else {
+            // Tier 3: 3D Fierce Lava Dreadnought Boss Monster!
+            ctx.shadowColor = '#ff3d00';
+            ctx.shadowBlur = 20;
+
+            // Outer Lava Armor
+            ctx.fillStyle = '#212121';
+            ctx.beginPath();
+            ctx.arc(0, 0, e.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Fierce Horns
+            ctx.fillStyle = '#ff3d00';
+            ctx.beginPath();
+            ctx.moveTo(-e.radius * 0.7, -e.radius * 0.3);
+            ctx.lineTo(-e.radius * 1.3, -e.radius * 1.1);
+            ctx.lineTo(-e.radius * 0.2, -e.radius * 0.8);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(e.radius * 0.7, -e.radius * 0.3);
+            ctx.lineTo(e.radius * 1.3, -e.radius * 1.1);
+            ctx.lineTo(e.radius * 0.2, -e.radius * 0.8);
+            ctx.fill();
+
+            // Red Lava Glowing Eyes
+            ctx.fillStyle = '#ffeb3b';
+            ctx.beginPath();
+            ctx.arc(-10, -5, 5, 0, Math.PI * 2);
+            ctx.arc(10, -5, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore();
+    });
+
+    // 5. Draw Projectiles
+    projectiles.forEach(p => {
+        ctx.save();
+        ctx.shadowColor = '#00e5ff';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    });
+
+    // 6. Draw 3D Styled Fighter Jet (Player)
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.rotate(player.tilt); // 3D Rolling / Tilting Effect!
+
+    // Jet Drop Shadow (Creates 3D Altitude Perception)
+    ctx.shadowColor = 'rgba(0, 229, 255, 0.4)';
+    ctx.shadowBlur = 15;
+
+    // Wings Layer
+    ctx.fillStyle = '#1c313a';
+    ctx.beginPath();
+    ctx.moveTo(0, -22);
+    ctx.lineTo(24, 14);
+    ctx.lineTo(8, 10);
+    ctx.lineTo(-8, 10);
+    ctx.lineTo(-24, 14);
+    ctx.closePath();
+    ctx.fill();
+
+    // Fuselage Metallic Body Gradient
+    const mainGrad = ctx.createLinearGradient(-10, 0, 10, 0);
+    mainGrad.addColorStop(0, '#37474f');
+    mainGrad.addColorStop(0.5, '#eceff1');
+    mainGrad.addColorStop(1, '#37474f');
+    ctx.fillStyle = mainGrad;
+
+    ctx.beginPath();
+    ctx.moveTo(0, -25);
+    ctx.lineTo(9, 8);
+    ctx.lineTo(0, 16);
+    ctx.lineTo(-9, 8);
+    ctx.closePath();
+    ctx.fill();
+
+    // 3D Glass Cockpit Dome
+    const glassGrad = ctx.createRadialGradient(0, -4, 2, 0, -4, 8);
+    glassGrad.addColorStop(0, '#80d8ff');
+    glassGrad.addColorStop(1, '#00838f');
+    ctx.fillStyle = glassGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, -4, 4, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+}
+
+// Start Game Engine Loop
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
